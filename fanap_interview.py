@@ -1,63 +1,106 @@
+# from flask import Flask, request, jsonify
+# from pymongo import MongoClient
+
+# app = Flask(__name__)
+# client = MongoClient('mongodb://localhost:27017/')
+# db = client['mydatabase']
+
+# @app.route('/', methods=['POST'])
+# def post_data():
+#     # data = request.get_json()
+
+#     # main_dict = data['main']
+#     # input_dict = data['input']
+
+#     # for r in input_dict:
+#     #     inner_join = {key: r[key] for key in main_dict.keys() if key in r}
+#     #     db['collection'].insert_one(inner_join)
+
+#     return '', 200
+
+# @app.route('/', methods=['GET'])
+# def get_data():
+#     data = []
+#     results = db['collection'].find()
+#     for result in results:
+#         data.append(result)
+
+#     return jsonify(data), 200
+
+# if __name__ == '__main__':
+#     app.run(host='0.0.0.0', port=5000)
+
+
+# from flask import Flask, request, jsonify
+# import json
+# import uuid
+
+# app = Flask(__name__)
+
+# data_storage = {}
+
+# @app.route('/', methods=['POST'])
+# def post_data():
+#     data = request.get_json()
+#     main_dict = data['main']
+#     input_dict = data['input']
+
+#     for r in input_dict:
+#         inner_join = {key: r[key] for key in main_dict.keys() if key in r}
+
+#         key = str(uuid.uuid4())
+
+#         data_storage[key] = inner_join
+
+#     return '', 200
+
+# @app.route('/', methods=['GET'])
+# def get_data():
+#     return jsonify(data_storage), 200
+
+# if __name__ == '__main__':
+#     app.run(host='0.0.0.0', port=5000)
+
+
+
 from flask import Flask, request, jsonify
-import sqlite3
+import json
+import uuid
 
 app = Flask(__name__)
 
-# create SQLite database
-conn = sqlite3.connect('filtering_service.db',check_same_thread=False)
-c = conn.cursor()
+data_storage_file = 'data.json'
 
-c.execute('''CREATE TABLE IF NOT EXISTS filtering_service
-             (x INT, y INT, width INT, height INT, time TEXT)''')
-conn.commit()
+import datetime
+
 
 @app.route('/', methods=['POST'])
 def post_data():
     data = request.get_json()
-
     main_dict = data['main']
     input_dict = data['input']
 
     for r in input_dict:
-        
         inner_join = {key: r[key] for key in main_dict.keys() if key in r}
+        inner_join["time"] = datetime.datetime.now().strftime('%Y-%m-%d') + ' ' + datetime.datetime.now().strftime('%H:%M:%S')
+        
+        key = str(uuid.uuid4())
 
-        print(inner_join)
-
-        # c.execute("INSERT INTO database VALUES (?, ?, ?, ?, datetime('now'))",
-        #           (rectangle['x'], rectangle['y'], rectangle['width'], rectangle['height']))
-
-        sql = "INSERT INTO filtering_service (" + ", ".join(inner_join.keys()) + " ,time) VALUES (" + ", ".join("?" * len(inner_join.keys())) + ", datetime('now'))"
-
-        print(sql)
-
-        values = tuple(inner_join.values())
-
-        print(values)
-
-        c.execute(sql, values)
-    
-    conn.commit()
+        with open(data_storage_file, 'a') as file:
+            json.dump({key: inner_join}, file)
+            file.write('\n')
 
     return '', 200
 
 @app.route('/', methods=['GET'])
 def get_data():
-    c.execute("SELECT x, y, width, height, time FROM filtering_service")
-    rows = c.fetchall()
+    values = []
+    with open(data_storage_file, 'r') as file:
+        for line in file:
+            data = json.loads(line)
+            values.extend(data.values())
 
-    data = []
-    for row in rows:
-        d = {
-            'x': row[0],
-            'y': row[1],
-            'width': row[2],
-            'height': row[3],
-            'time': row[4]
-        }
-        data.append(d)
-
-    return jsonify(data), 200
+    return jsonify(values), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
